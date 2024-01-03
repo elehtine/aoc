@@ -1,159 +1,105 @@
 #include <iostream>
-#include <memory>
-#include <map>
 
 #include "readwrite.h"
 
 using namespace std;
 
-struct Signal {
-  string from, to;
-  bool low;
+enum class Type {
+  flip, conjunction, broadcaster
 };
 
-ostream& operator<<(ostream& out, const Signal& signal) {
-  out << signal.from;
-  if (signal.low) out << " -low-> ";
-  else out << " -high-> ";
-  out << signal.to;
+Type type(const string& s) {
+  if (s[0] == '%') return Type::flip;
+  if (s[0] == '&') return Type::conjunction;
+  return Type::broadcaster;
+}
+
+ostream& operator<<(ostream& out, const Type type) {
+  if (type == Type::flip) out << "% ";
+  if (type == Type::conjunction) out << "& ";
   return out;
 }
 
 struct Module {
-  string name;
-  vector<string> cables;
-
-  Module() {}
-
-  Module(string name, vector<string> cables):
-    name(name), cables(cables) {}
-
-  string to_string() const {
-    string result = type();
-    result += name;
-    result += " -> ";
-    bool comma = false;
-    for (string cable: cables) {
-      if (comma) result += ", ";
-      comma = true;
-      result += cable;
-    }
-    return result;
-  }
-
-  virtual string type() const = 0;
-  virtual void handle(const Signal& signal) = 0;
-  virtual void save(const Module& mod) = 0;
+  Type type;
+  vector<string> name;
+  vector<string> from;
+  vector<string> to;
 };
 
+Module parse_module(const string& line) {
+  string before = split(line, " -> ")[0];
+  string after = split(line, " -> ")[1];
+  string name = before == "broadcaster" ? before : before.substr(1);
+  return { type(before), { name }, {}, { split(after, ", ") } };
+}
 
-vector<unique_ptr<Module>> modules;
-vector<Signal> signals;
-vector<Signal> start;
-
-struct Flip : public Module {
-  bool on = false;
-
-  Flip(string name, vector<string> cables): Module { name, cables } {};
-
-  string type() const override {
-    return "% ";
+string join(const vector<string>& parts) {
+  string result = "[";
+  bool comma = false;
+  for (const string& part: parts) {
+    if (comma) result += ",";
+    result += " ";
+    result += part;
   }
+  result += " ]";
+  return result;
+}
 
-  void handle(const Signal& signal) override {
-    if (!signal.low) return;
-    on = !on;
-    for (const string& s: cables) {
-      signals.push_back({ name, s, !on });
-    }
+vector<Module> modules;
+
+int find_module(const string& name) {
+  for (int index = 0; index < (int) modules.size(); index++) {
+    if (modules[index].name[0] == name) return index;
   }
-  void save(const Module& mod) override {}
-};
-
-struct Conjunction : public Module {
-  map<string, bool> remember;
-
-  Conjunction(string name, vector<string> cables): 
-    Module { name, cables } {}
-
-  string type() const override {
-    return "& ";
-  }
-
-  void handle(const Signal& signal) override {
-    remember[signal.from] = signal.low;
-    bool high = true;
-    for (auto input: remember) {
-      if (input.second) high = false;
-    }
-
-    for (const string& s: cables) {
-      signals.push_back({ name, s, high });
-    }
-  }
-
-  void save(const Module& mod) override {
-    for (string cable: mod.cables) {
-      if (cable == name) remember[mod.name] = true;
-    }
-  }
-};
+  return -1;
+}
 
 ostream& operator<<(ostream& out, const Module& mod) {
-  out << mod.to_string();
+  int flip_from = 0;
+  int conjunction_from = 0;
+  int flip_to = 0;
+  int conjunction_to = 0;
+  for (const string& sender: mod.from) {
+    int index = find_module(sender);
+    if (index == -1) continue;
+    if (modules[index].type == Type::flip) flip_from++;
+    if (modules[index].type == Type::conjunction) conjunction_from++;
+  }
+  for (const string& receiver: mod.to) {
+    int index = find_module(receiver);
+    if (index == -1) continue;
+    if (modules[index].type == Type::flip) flip_to++;
+    if (modules[index].type == Type::conjunction) conjunction_to++;
+  }
+
+  out << mod.type;
+  out << join(mod.name) << " ";
+  out << Type::flip << flip_from << ", ";
+  out << Type::conjunction << conjunction_from << " -> ";
+  out << Type::flip << flip_to << ", ";
+  out << Type::conjunction << conjunction_to;
   return out;
 }
 
 void read() {
   vector<string> lines = read_lines();
-  for (string line: lines) {
-    vector<string> parts = split(line, " -> ");
-    string name = parts[0].substr(1);
-    vector<string> cables = split(parts[1], ", ");
-    if (parts[0] == "broadcaster") {
-      for (string s: cables) {
-        start.push_back({ "broadcaster", s, true });
-      }
-    } else if (parts[0][0] == '&') {
-      modules.push_back(make_unique<Conjunction>(name, cables));
-    } else {
-      modules.push_back(make_unique<Flip>(name, cables));
+  for (const string& line: lines) {
+    modules.push_back(parse_module(line));
+  }
+  for (const Module& mod: modules) {
+    for (const string& receiver: mod.to) {
+      int index = find_module(receiver);
+      if (index == -1) continue;
+      modules[index].from.push_back(mod.name[0]);
     }
   }
+
+  cout << modules << endl;
 }
 
 void first() {
-  const int count = 1000;
-  int low = 0;
-  int high = 0;
-  for (unique_ptr<Module>& one: modules) {
-    for (unique_ptr<Module>& other: modules) {
-      one->save(*other);
-    }
-  }
-
-  for (int i = 0; i < count; i++) {
-    low++;
-    signals = start;
-
-    while (!signals.empty()) {
-      Signal signal = signals.front();
-      signals.erase(signals.begin());
-      if (signal.low) low++;
-      else high++;
-
-      if (signal.to == "output") continue;
-
-      for (unique_ptr<Module>& mod: modules) {
-        if (mod->name != signal.to) continue;
-        mod->handle(signal);
-        break;
-      }
-    }
-  }
-  cout << "low: " << low << endl;
-  cout << "high: " << high << endl;
-  cout << "result: " << low * high << endl;
+  cout << "first" << endl;
 }
 
 int main() {
