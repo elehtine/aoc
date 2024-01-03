@@ -1,7 +1,7 @@
 appname = main
 
 CXX = g++
-CXXFLAGS = -Wall -g -std=c++20
+CXXFLAGS = -Wall -g -std=c++17
 
 SRCS = main.cpp readwrite.cpp
 
