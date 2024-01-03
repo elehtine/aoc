@@ -39,6 +39,7 @@ string join(const vector<string>& parts) {
   bool comma = false;
   for (const string& part: parts) {
     if (comma) result += ",";
+    comma = true;
     result += " ";
     result += part;
   }
@@ -96,30 +97,32 @@ void read() {
   }
 }
 
-void first() {
-  cout << "size: " << modules.size() << endl;
-  int last = modules.size()+1;
-  while (modules.size() < last) {
-    last = modules.size();
-
-    for (int index = 0; index < (int) modules.size(); index++) {
-      Module mod = modules[index];
-      if (mod.type != Type::flip) continue;
-      int sender = find_module(mod.from[0]);
-      if (modules[sender].type != Type::flip) continue;
-      if (mod.from.size() != 1) continue;
-      if (modules[sender].to.size() != 1) continue;
-
-      modules[sender].to.clear();
-      modules[sender].to = mod.to;
-      for (const string& name: mod.name) {
-        modules[sender].name.push_back(name);
-      }
-      modules.erase(modules.begin() + index);
+int explore(vector<string> path, string last) {
+  for (const string& before: path) {
+    if (before == last) {
+      return 1;
     }
   }
-  cout << "size: " << modules.size() << endl;
+  path.push_back(last);
+
+  int index = find_module(last);
+  if (index == -1) {
+    return 1;
+  }
+
+  int result = 0;
+  for (const string& current: modules[index].to) {
+    result += explore(path, current);
+  }
+  return result;
+}
+
+void first() {
   cout << modules << endl;
+  cout << explore({}, "db") << endl;
+  cout << explore({}, "hd") << endl;
+  cout << explore({}, "cm") << endl;
+  cout << explore({}, "xf") << endl;
 }
 
 int main() {
