@@ -15,22 +15,29 @@ void read() {
   visited = vector<vector<bool>>(height, vector<bool>(width, false));
 }
 
-int depth_first(int row, int col, int steps) {
-  if (col == height-1) return steps;
+int depth_first(int row, int col, int steps, bool second) {
+  if (row == height-1 && col == width-2) {
+    return steps;
+  }
   if (row < 0 || row >= width) return -1;
   if (col < 0 || col >= height) return -1;
-  if (visited[row][col]) return -1;
-  visited[row][col] = true;
 
   char current = trails[row][col];
   if (current == '#') return -1;
 
+  if (visited[row][col]) return -1;
+  visited[row][col] = true;
+
   int result = -1;
-  if (current == '.' || current == '>') result = max(result, depth_first(row, col+1, steps+1));
-  if (current == '.' || current == 'v') result = max(result, depth_first(row+1, col, steps+1));
-  if (current == '.') {
-    result = max(result, depth_first(row-1, col, steps+1));
-    result = max(result, depth_first(row, col-1, steps+1));
+  if (second || current == '.' || current == '>') {
+    result = max(result, depth_first(row, col+1, steps+1, second));
+  }
+  if (second || current == '.' || current == 'v') {
+    result = max(result, depth_first(row+1, col, steps+1, second));
+  }
+  if (second || current == '.') {
+    result = max(result, depth_first(row-1, col, steps+1, second));
+    result = max(result, depth_first(row, col-1, steps+1, second));
   }
 
   visited[row][col] = false;
@@ -38,10 +45,15 @@ int depth_first(int row, int col, int steps) {
 }
 
 void first() {
-  cout << depth_first(1, 1, 0) << endl;
+  cout << "first: " << depth_first(0, 1, 0, false) << endl;
+}
+
+void second() {
+  cout << "second: " << depth_first(0, 1, 0, true) << endl;
 }
 
 int main() {
   read();
   first();
+  second();
 }
