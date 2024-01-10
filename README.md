@@ -2,6 +2,8 @@
 
 Merry Christmas and Happy New Year!
 
+I got 46 stars in Advent of Code 2023.
+
 ## Structure
 
 Here is my solutions for Advent of Code problems. Here is only my final files
