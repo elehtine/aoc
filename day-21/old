@@ -1,0 +1,130 @@
+#include <iostream>
+#include <sstream>
+#include <algorithm>
+#include <vector>
+#include <map>
+
+
+constexpr char nl { '\n' };
+constexpr char delimiter { ' ' };
+
+template<typename T>
+std::ostream& operator<<(std::ostream& out, const std::vector<T>& vector) {
+  std::ranges::for_each(vector, [&out](const T& element) {
+    out << element << delimiter;
+  });
+  return out;
+}
+
+using Pair = std::pair<int, int>;
+constexpr Pair fail { -1, -1 };
+
+const std::map<char, Pair> directions {
+  { '>', { 1, 0 } },
+  { '<', { -1, 0 } },
+  { '^', { 0, 1 } },
+  { 'v', { 0, -1 } },
+};
+
+const std::vector<std::string> numeric_keypad { "789", "456", "123", " 0A", };
+const std::vector<std::string> directional_keypad { " ^A", "<v>" };
+
+auto compute_check(int width, int height) {
+  return [=](int x, int y) {
+    if (x < 0 || x >= width) return false;
+    if (y < 0 || y >= height) return false;
+    return true;
+  };
+}
+
+Pair get(std::vector<std::string> keypad, char c) {
+  int width = keypad[0].size();
+  int height = keypad.size();
+  for (int x = 0; x < width; ++x) {
+    for (int y = 0; y < height; ++y) {
+      if (keypad[y][x] == c) return { x, y };
+    }
+  }
+
+  return fail;
+}
+
+std::string path(std::string result, int x, int y, Pair to, std::vector<std::string> keypad) {
+  if (x == to.first && y == to.second) return result + "A";
+
+  int dx = std::abs(to.first - x);
+  int dy = std::abs(to.second - y);
+
+  if (keypad[y][to.first] == ' ') {
+    if (y > to.second) return path(result + std::string(dy, '^'), x, y - dy, to, keypad);
+    if (y < to.second) return path(result + std::string(dy, 'v'), x, y + dy, to, keypad);
+  }
+
+  if (keypad[to.second][x] == ' ') {
+    if (x > to.first) return path(result + std::string(dx, '<'), x - dx, y, to, keypad);
+    if (x < to.first) return path(result + std::string(dx, '>'), x + dx, y, to, keypad);
+  }
+
+  if (x > to.first) return path(result + '<', x - 1, y, to, keypad);
+  if (y > to.second) return path(result + '^', x, y - 1, to, keypad);
+  if (y < to.second) return path(result + 'v', x, y + 1, to, keypad);
+  if (x < to.first) return path(result + '>', x + 1, y, to, keypad);
+  return "";
+}
+
+std::string shortest_path(std::string code, std::vector<std::string> keypad) {
+  std::string result { "" };
+
+  Pair from = get(keypad, 'A');
+  for (char c: code) {
+    Pair to = get(keypad, c);
+    result += path("", from.first, from.second, to, keypad);
+    from = to;
+  }
+
+  return result;
+}
+
+int complexity(int length, std::string code) {
+  std::istringstream stream { code };
+  int number;
+  stream >> number;
+  return length * number;
+}
+
+void first(std::vector<std::string> lines) {
+  int result = 0;
+  for (std::string line: lines) {
+    std::string first = shortest_path(line, numeric_keypad);
+    std::string second = shortest_path(first, directional_keypad);
+    std::string third = shortest_path(second, directional_keypad);
+
+    result += complexity(third.size(), line);
+  }
+  std::cout << result << nl;
+}
+
+void second(std::vector<std::string> lines) {
+  int result = 0;
+  for (std::string line: lines) {
+    std::string code = shortest_path(line, numeric_keypad);
+    for (int index = 0; index < 10; ++index) {
+      code = shortest_path(code, directional_keypad);
+    }
+
+    result += complexity(code.size(), line);
+  }
+  std::cout << result << nl;
+}
+
+
+int main() {
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(std::cin, line)) {
+    lines.push_back(line);
+  }
+
+  first(lines);
+  second(lines);
+}
